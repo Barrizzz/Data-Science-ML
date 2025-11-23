@@ -78,7 +78,7 @@ print("Accuracy:", accuracy_score(y_test, y_pred_rf))
 print(classification_report(y_test, y_pred_rf))
 
 
-
+'''
 # FEATURE IMPORTANCES
 # Logistic regression 
 print("\nLogistic Regression feature importance (from Polynomial Features):")
@@ -102,6 +102,7 @@ print("\nRandom Forest Feature Importance:")
 rf_importances = RF.feature_importances_
 for feat, val in sorted(zip(original_features, rf_importances), key=lambda x: x[1], reverse=True):
     print(f"{feat}: {val:.6f}")
+
 
 # PLOTTING
 # -------- 1. Logistic Regression (collapsed) --------
@@ -133,52 +134,78 @@ plt.title("Random Forest Feature Importance")
 plt.gca().invert_yaxis()
 plt.tight_layout()
 plt.show()
-
 '''
-x = data["customer review"]
-y = data["sentiment"]
-# for sentiment, 1 = positive, 0 = negative
 
-# Split the data into training and testing sets
-x_train, x_test, y_train, y_test = train_test_split(
-    x, 
-    y, 
-    test_size=0.2,
-    random_state=42
-)
+# STILL REQUIRES IMPROVEMENTSS
+def recommended_price_range(model, df, price_col="price", threshold=0.7, steps=200, model_name="Model"):
+    # Use a representative item (median values)
+    base_row = df.median(numeric_only=True).to_frame().T
 
-# Vectorize the text data
-vectorizer = TfidfVectorizer()
-x_train_vec = vectorizer.fit_transform(x_train)
-x_test_vec = vectorizer.transform(x_test)
+    price_min = df[price_col].min()
+    price_max = df[price_col].max()
+    price_grid = np.linspace(price_min, price_max, steps)
 
-models = [LogisticRegression(), MultinomialNB()]
+    probabilities = []
 
-models[0].fit(x_train_vec, y_train)
-y_pred = models[0].predict(x_test_vec)
-print(accuracy_score(y_test, y_pred))
-print(classification_report(y_test, y_pred))
+    for p in price_grid:
+        row = base_row.copy()
+        row[price_col] = p
 
+        # Predict sentiment probability
+        if hasattr(model, "predict_proba"):
+            prob = model.predict_proba(row)[:, 1][0]
+        else:
+            prob = model.predict(row)[0]
 
+        probabilities.append(prob)
 
+    probabilities = np.array(probabilities)
 
+    # Identify all price points that meet the threshold
+    good_prices = price_grid[probabilities >= threshold]
 
-
-# Inserting the reviews section
-# This is to convert the sliced customer review data from the dataframe into numpy array
-customer_reviews = data.iloc[:4000:20]['customer review'].to_numpy()
-
-# Manual input customer reviews
-#customer_reviews = []
-
-#print(customer_reviews)
-
-# Loop trough the list and use the machine learning model to predict the result
-for review in customer_reviews:
-    example_reviews_vec = vectorizer.transform([review])
-    example_pred = models[0].predict(example_reviews_vec)
-    if example_pred[0] == 1:
-        print("GOOD")
+    if len(good_prices) == 0:
+        rec_min, rec_max = None, None
     else:
-        print("BAD")
-'''
+        rec_min = float(good_prices.min())
+        rec_max = float(good_prices.max())
+
+    # ===== PLOT =====
+    plt.figure(figsize=(8, 5))
+    plt.plot(price_grid, probabilities, linewidth=2)
+    plt.axhline(threshold, color="red", linestyle="--", label=f"Threshold = {threshold}")
+    plt.title(f"Predicted Positive Sentiment vs Price ({model_name})")
+    plt.xlabel("Price")
+    plt.ylabel("Predicted Probability of Positive Sentiment")
+    plt.legend()
+    plt.grid(True)
+    plt.show()
+
+    return rec_min, rec_max
+
+# ========================================================
+# RUN PRICE TESTING FOR EACH MODEL
+# ========================================================
+
+# Logistic Regression (uses polynomial features)
+lr_min, lr_max = recommended_price_range(
+    LR, pd.DataFrame(x_test_poly, columns=feature_names_poly), 
+    price_col="price", threshold=0.7, 
+    model_name="Logistic Regression (Polynomial Features)"
+)
+print("Logistic Regression:", lr_min, lr_max)
+
+# HistGradientBoosting (raw features)
+hgb_min, hgb_max = recommended_price_range(
+    HGB, x_test, price_col="price", threshold=0.7, 
+    model_name="HistGradientBoosting"
+)
+print("HistGradientBoosting:", hgb_min, hgb_max)
+
+# Random Forest (raw features)
+rf_min, rf_max = recommended_price_range(
+    RF, x_test, price_col="price", threshold=0.7, 
+    model_name="Random Forest"
+)
+print("Random Forest:", rf_min, rf_max)
+

@@ -3,14 +3,14 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 # Numeric machine learning model with RandomForestClassifier and LinearRegression
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import train_test_split, RandomizedSearchCV, StratifiedKFold
 from sklearn.linear_model import LogisticRegression
 from sklearn.ensemble import HistGradientBoostingClassifier, RandomForestClassifier
 
 from sklearn.preprocessing import PolynomialFeatures, StandardScaler
 
 # Metrics
-from sklearn.metrics import accuracy_score, classification_report
+from sklearn.metrics import accuracy_score, classification_report, ConfusionMatrixDisplay
 from sklearn.inspection import permutation_importance
 
 # Create a dataframe of the csv file
@@ -54,28 +54,106 @@ x_train, x_test, _, _ = train_test_split(
 print("x_train_poly and x_test_poly shape: ", x_train_poly.shape, x_test_poly.shape)
 print("x_train and x_test shape: ", x_train.shape, x_test.shape)
 
-LR = LogisticRegression(max_iter=1000)
+LR = LogisticRegression(C=0.1, penalty='l2', solver='lbfgs', max_iter=1000)
 HGB = HistGradientBoostingClassifier()
 RF = RandomForestClassifier()
 
-# MODEL TRAINING
-print("Logistic Regression (with polynomial features)")
-LR.fit(x_train_poly, y_train)
-y_pred_lr = LR.predict(x_test_poly)
-print("Accuracy:", accuracy_score(y_test, y_pred_lr))
-print(classification_report(y_test, y_pred_lr))
+cv = StratifiedKFold(n_splits=3, shuffle=True, random_state=42)
 
-print("\nHist Gradient Boosting Classifier")
-HGB.fit(x_train, y_train)
-y_pred_hgb = HGB.predict(x_test)
-print("Accuracy:", accuracy_score(y_test, y_pred_hgb))
-print(classification_report(y_test, y_pred_hgb))
+# -----------------------
+# 1. Logistic Regression
+# -----------------------
+LR_params_small = {
+    'C': [0.01, 0.1, 1, 10],
+    'solver': ['lbfgs', 'liblinear'],
+    'penalty': ['l2']  # keep l2 for stability
+}
 
-print("\nRandom Forest Classifier")
-RF.fit(x_train, y_train)
-y_pred_rf = RF.predict(x_test)
-print("Accuracy:", accuracy_score(y_test, y_pred_rf))
-print(classification_report(y_test, y_pred_rf))
+LR_random = RandomizedSearchCV(
+    LogisticRegression(max_iter=1000),
+    param_distributions=LR_params_small,
+    n_iter=5,
+    cv=cv,
+    scoring='f1_weighted',
+    n_jobs=-1,
+    random_state=42
+)
+
+LR_random.fit(x_train_poly, y_train)
+print("Best LR params:", LR_random.best_params_)
+y_pred_lr_best = LR_random.predict(x_test_poly)
+print("Accuracy:", accuracy_score(y_test, y_pred_lr_best))
+print(classification_report(y_test, y_pred_lr_best))
+
+# -----------------------
+# 2. Random Forest Classifier
+# -----------------------
+RF_params_small = {
+    'n_estimators': [100, 200],
+    'max_depth': [None, 10],
+    'min_samples_split': [2, 5],
+    'min_samples_leaf': [1, 4],
+    'max_features': ['sqrt', 'log2']
+}
+
+RF_random = RandomizedSearchCV(
+    RandomForestClassifier(random_state=42),
+    param_distributions=RF_params_small,
+    n_iter=5,
+    cv=cv,
+    scoring='f1_weighted',
+    n_jobs=-1,
+    random_state=42
+)
+
+RF_random.fit(x_train, y_train)
+print("Best RF params:", RF_random.best_params_)
+y_pred_rf_best = RF_random.predict(x_test)
+print("Accuracy:", accuracy_score(y_test, y_pred_rf_best))
+print(classification_report(y_test, y_pred_rf_best))
+
+# -----------------------
+# 3. HistGradientBoostingClassifier
+# -----------------------
+HGB_params_small = {
+    'learning_rate': [0.05, 0.1],
+    'max_iter': [100, 200],
+    'max_depth': [3, 5],
+    'min_samples_leaf': [20, 50],
+    'l2_regularization': [0, 0.1]
+}
+
+HGB_random = RandomizedSearchCV(
+    HistGradientBoostingClassifier(random_state=42),
+    param_distributions=HGB_params_small,
+    n_iter=5,
+    cv=cv,
+    scoring='f1_weighted',
+    n_jobs=-1,
+    random_state=42
+)
+
+HGB_random.fit(x_train, y_train)
+print("Best HGB params:", HGB_random.best_params_)
+y_pred_hgb_best = HGB_random.predict(x_test)
+print("Accuracy:", accuracy_score(y_test, y_pred_hgb_best))
+print(classification_report(y_test, y_pred_hgb_best))
+
+# CONFUSION MATRIX
+# Logistic Regression confusion matrix
+ConfusionMatrixDisplay.from_estimator(LR_random.best_estimator_, x_test_poly, y_test, cmap='Blues')
+plt.title("Confusion Matrix - Logistic Regression")
+plt.show()
+
+# HistGradientBoostingClassifier confusion matrix
+ConfusionMatrixDisplay.from_estimator(HGB_random.best_estimator_, x_test, y_test, cmap='Greens')
+plt.title("Confusion Matrix - HistGradientBoostingClassifier")
+plt.show()
+
+# Random Forest Classifier confusion matrix
+ConfusionMatrixDisplay.from_estimator(RF_random.best_estimator_, x_test, y_test, cmap='Oranges')
+plt.title("Confusion Matrix - Random Forest Classifier")
+plt.show()
 
 
 '''
@@ -134,7 +212,7 @@ plt.title("Random Forest Feature Importance")
 plt.gca().invert_yaxis()
 plt.tight_layout()
 plt.show()
-'''
+
 
 # STILL REQUIRES IMPROVEMENTSS
 def recommended_price_range(model, df, price_col="price", threshold=0.7, steps=200, model_name="Model"):
@@ -208,4 +286,4 @@ rf_min, rf_max = recommended_price_range(
     model_name="Random Forest"
 )
 print("Random Forest:", rf_min, rf_max)
-
+'''

@@ -62,7 +62,7 @@ def test_model(model):
         mean(lst_accu_stratified))
     print('\nStandard Deviation is:', stdev(lst_accu_stratified))
 
-# TRAINING MODELS AND TESTING ACCURACY
+# TESTING HIGHEST POSSIBLE ACCURACY (not yet training the model)
 # 1. Logistic Regression
 test_model(LR)
 
@@ -72,9 +72,30 @@ test_model(RF)
 # 3. HistGradientBoostingClassifier
 test_model(HGB)
 
+
+# TRAINING THE MODELS
+# 1. Logistic Regression
+LR.fit(x_scaled, y_train)
+
+# 2. Random Forest Classifier
+RF.fit(x_train, y_train)
+
+# 3. HistGradientBoostingClassifier
+HGB.fit(x_train, y_train)
+
+# PREDICTIONS
+pred_lr  = LR.predict(scaler.transform(x_test))
+pred_rf  = RF.predict(x_test)
+pred_hgb = HGB.predict(x_test)
+
+print("LR final accuracy:", accuracy_score(y_test, pred_lr))
+print("RF final accuracy:", accuracy_score(y_test, pred_rf))
+print("HGB final accuracy:", accuracy_score(y_test, pred_hgb))
+
+
 # CONFUSION MATRIX
 # Logistic Regression confusion matrix
-ConfusionMatrixDisplay.from_estimator(LR, x_test, y_test, cmap='Blues')
+ConfusionMatrixDisplay.from_estimator(LR, x_scaled, y_test, cmap='Blues')
 plt.title("Confusion Matrix - Logistic Regression")
 plt.show()
 

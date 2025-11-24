@@ -2,7 +2,7 @@ import pandas as pd
 import numpy as np
 from scipy.stats import chi2_contingency
 
-df = pd.read_csv("merged_dataset.csv")
+df = pd.read_csv("Data-Science-ML/merged_dataset.csv")
 
 # List of potential features
 # Numerical features

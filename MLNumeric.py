@@ -1,6 +1,7 @@
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
+from statistics import mean, stdev
 
 # Numeric machine learning model with RandomForestClassifier and LinearRegression
 from sklearn.model_selection import train_test_split, RandomizedSearchCV, StratifiedKFold
@@ -23,137 +24,71 @@ original_features = ["price", "overall rating", "number sold", "total review"]
 
 print("x shape:", x.shape)
 
-# Use standard scaler before adding polynomial features
+# Use standard scaler for logistic regression
 scaler = StandardScaler()
 x_scaled = scaler.fit_transform(x)
 
-# Polynomial features
-poly = PolynomialFeatures(degree=2, include_bias=False)
-x_poly = poly.fit_transform(x_scaled)
-
-feature_names_poly = poly.get_feature_names_out(original_features)
-
-print("x shape after polynomial:", x_poly.shape)
-
-# Split the data into training and testing sets
-x_train_poly, x_test_poly, y_train, y_test = train_test_split(
-    x_poly, 
-    y, 
-    test_size=0.2,
-    random_state=42
-)
-
 # Another data split for the x data with no added polynomial features (this is for the tree based models)
-x_train, x_test, _, _ = train_test_split(
+x_train, x_test, y_train, y_test = train_test_split(
     x,
     y,
     test_size=0.2,
     random_state=42
 )
 
-print("x_train_poly and x_test_poly shape: ", x_train_poly.shape, x_test_poly.shape)
-print("x_train and x_test shape: ", x_train.shape, x_test.shape)
-
-LR = LogisticRegression(C=0.1, penalty='l2', solver='lbfgs', max_iter=1000)
+LR = LogisticRegression()
 HGB = HistGradientBoostingClassifier()
 RF = RandomForestClassifier()
 
-cv = StratifiedKFold(n_splits=3, shuffle=True, random_state=42)
+skf = StratifiedKFold(n_splits=10, shuffle=True, random_state=1)
 
-# -----------------------
+def test_model(model):
+    lst_accu_stratified = []
+    for train_index, test_index in skf.split(x, y):
+        if isinstance(model, LogisticRegression):
+            x_train_fold, x_test_fold = x_scaled[train_index], x_scaled[test_index]
+        else:
+            x_train_fold, x_test_fold = x.iloc[train_index], x.iloc[test_index]
+        y_train_fold, y_test_fold = y.iloc[train_index], y.iloc[test_index]
+        model.fit(x_train_fold, y_train_fold)
+        lst_accu_stratified.append(model.score(x_test_fold, y_test_fold))
+        
+    print('List of possible accuracy:', lst_accu_stratified)
+    print('\nMaximum Accuracy That can be obtained from this model is:',
+        max(lst_accu_stratified))
+    print('\nMinimum Accuracy:',
+        min(lst_accu_stratified))
+    print('\nOverall Accuracy:',
+        mean(lst_accu_stratified))
+    print('\nStandard Deviation is:', stdev(lst_accu_stratified))
+
+# TRAINING MODELS AND TESTING ACCURACY
 # 1. Logistic Regression
-# -----------------------
-LR_params_small = {
-    'C': [0.01, 0.1, 1, 10],
-    'solver': ['lbfgs', 'liblinear'],
-    'penalty': ['l2']  # keep l2 for stability
-}
+test_model(LR)
 
-LR_random = RandomizedSearchCV(
-    LogisticRegression(max_iter=1000),
-    param_distributions=LR_params_small,
-    n_iter=5,
-    cv=cv,
-    scoring='f1_weighted',
-    n_jobs=-1,
-    random_state=42
-)
-
-LR_random.fit(x_train_poly, y_train)
-print("Best LR params:", LR_random.best_params_)
-y_pred_lr_best = LR_random.predict(x_test_poly)
-print("Accuracy:", accuracy_score(y_test, y_pred_lr_best))
-print(classification_report(y_test, y_pred_lr_best))
-
-# -----------------------
 # 2. Random Forest Classifier
-# -----------------------
-RF_params_small = {
-    'n_estimators': [100, 200],
-    'max_depth': [None, 10],
-    'min_samples_split': [2, 5],
-    'min_samples_leaf': [1, 4],
-    'max_features': ['sqrt', 'log2']
-}
+test_model(RF)
 
-RF_random = RandomizedSearchCV(
-    RandomForestClassifier(random_state=42),
-    param_distributions=RF_params_small,
-    n_iter=5,
-    cv=cv,
-    scoring='f1_weighted',
-    n_jobs=-1,
-    random_state=42
-)
-
-RF_random.fit(x_train, y_train)
-print("Best RF params:", RF_random.best_params_)
-y_pred_rf_best = RF_random.predict(x_test)
-print("Accuracy:", accuracy_score(y_test, y_pred_rf_best))
-print(classification_report(y_test, y_pred_rf_best))
-
-# -----------------------
 # 3. HistGradientBoostingClassifier
-# -----------------------
-HGB_params_small = {
-    'learning_rate': [0.05, 0.1],
-    'max_iter': [100, 200],
-    'max_depth': [3, 5],
-    'min_samples_leaf': [20, 50],
-    'l2_regularization': [0, 0.1]
-}
-
-HGB_random = RandomizedSearchCV(
-    HistGradientBoostingClassifier(random_state=42),
-    param_distributions=HGB_params_small,
-    n_iter=5,
-    cv=cv,
-    scoring='f1_weighted',
-    n_jobs=-1,
-    random_state=42
-)
-
-HGB_random.fit(x_train, y_train)
-print("Best HGB params:", HGB_random.best_params_)
-y_pred_hgb_best = HGB_random.predict(x_test)
-print("Accuracy:", accuracy_score(y_test, y_pred_hgb_best))
-print(classification_report(y_test, y_pred_hgb_best))
+test_model(HGB)
 
 # CONFUSION MATRIX
 # Logistic Regression confusion matrix
-ConfusionMatrixDisplay.from_estimator(LR_random.best_estimator_, x_test_poly, y_test, cmap='Blues')
+ConfusionMatrixDisplay.from_estimator(LR, x_test, y_test, cmap='Blues')
 plt.title("Confusion Matrix - Logistic Regression")
 plt.show()
 
+# Random Forest Classifier confusion matrix
+ConfusionMatrixDisplay.from_estimator(RF, x_test, y_test, cmap='Oranges')
+plt.title("Confusion Matrix - Random Forest Classifier")
+plt.show()
+
 # HistGradientBoostingClassifier confusion matrix
-ConfusionMatrixDisplay.from_estimator(HGB_random.best_estimator_, x_test, y_test, cmap='Greens')
+ConfusionMatrixDisplay.from_estimator(HGB, x_test, y_test, cmap='Greens')
 plt.title("Confusion Matrix - HistGradientBoostingClassifier")
 plt.show()
 
-# Random Forest Classifier confusion matrix
-ConfusionMatrixDisplay.from_estimator(RF_random.best_estimator_, x_test, y_test, cmap='Oranges')
-plt.title("Confusion Matrix - Random Forest Classifier")
-plt.show()
+
 
 
 '''

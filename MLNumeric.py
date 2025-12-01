@@ -15,7 +15,7 @@ from sklearn.metrics import accuracy_score, classification_report, ConfusionMatr
 from sklearn.inspection import permutation_importance
 
 # Create a dataframe of the csv file
-data = pd.read_csv("final_dataset.csv")
+data = pd.read_csv("Data-Science-ML/final_dataset.csv")
 
 x = data[["price","overall rating","number sold","total review"]]
 y = data["sentiment"]
@@ -36,6 +36,12 @@ x_train, x_test, y_train, y_test = train_test_split(
     random_state=42
 )
 
+<<<<<<< HEAD
+=======
+print("x_train_poly and x_test_poly shape: ", x_train_poly.shape, x_test_poly.shape)
+print("x_train and x_test shape: ", x_train.shape, x_test.shape)
+
+>>>>>>> ac10936373f5016df56edfb1bd6c33fa496e3e38
 LR = LogisticRegression()
 HGB = HistGradientBoostingClassifier()
 RF = RandomForestClassifier()

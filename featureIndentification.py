@@ -1,6 +1,8 @@
 import pandas as pd
 import numpy as np
 from scipy.stats import chi2_contingency
+import seaborn as sns
+import matplotlib.pyplot as plt
 
 df = pd.read_csv("Data-Science-ML/merged_dataset.csv")
 
@@ -20,13 +22,13 @@ categoricalF = [
     "category",
     "location",
     "region",
-    "emotion"
+    "emotion",
+    "customer review"
 ]
 
 # Other features
 otherF = [
     "product name",
-    "customer review"
 ]
 
 # LABEL
@@ -76,3 +78,10 @@ print("\nFeatures to drop:", features_to_drop)
 
 df = df.drop(columns=["customer rating", "emotion"])
 df.to_csv("final_dataset.csv", index=False)
+
+
+# Creating a heatmap of the spearman correlation
+plt.figure(figsize=(10, 8))
+sns.heatmap(spearman_corr, annot=True, cmap='coolwarm', fmt='.2f', linewidths=0.5)
+plt.title('Spearman Correlation Heatmap')
+plt.show()

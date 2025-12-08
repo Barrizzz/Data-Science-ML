@@ -4,14 +4,14 @@ from scipy.stats import chi2_contingency
 import seaborn as sns
 import matplotlib.pyplot as plt
 
-df = pd.read_csv("Data-Science-ML/merged_dataset.csv")
+df = pd.read_csv("merged_dataset.csv")
 
 # List of potential features
 # Numerical features
 numericalF = [
     "price",
     "overall rating",
-    "number sold",
+    "sentiment",
     "total review",
     "customer rating",
     "salary"
@@ -32,7 +32,7 @@ otherF = [
 ]
 
 # LABEL
-label = "sentiment"
+label = "number sold"
 
 # Spearmann corellation using pandas
 print("Spearman correlation of the numerical features:")
